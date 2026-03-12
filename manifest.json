@@ -23,7 +23,7 @@
     "128": "icons/icon1283.png"
   },
 
-  "permissions": ["storage", "windows", "tabs", "system.display"],
+  "permissions": ["storage", "windows", "tabs", "system.display", "downloads"],
   "commands": {
     "open-prompt-master": {
       "suggested_key": {
