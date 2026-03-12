@@ -4,6 +4,9 @@ const BACKUP_FILENAME_REGEX =
   "prompt-master/backups/prompts_backup_.*\\.json$";
 const BACKUP_MAX_COUNT = 5;
 const BACKUP_KEYS = ["myPrompts", "lastBackupHash"];
+const BACKUP_DEBOUNCE_MS = 1500;
+
+let pendingBackupTimer = null;
 
 // 辅助：根据当前窗口位置保存下次打开的坐标
 function persistWindowBounds(win) {
@@ -16,6 +19,26 @@ function persistWindowBounds(win) {
         height: win.height,
       },
     });
+  }
+}
+
+// 辅助：尽量静默关闭扩展窗口，避免唤醒浏览器主窗口
+async function closeWindowSilently(windowId) {
+  try {
+    const win = await chrome.windows.get(windowId);
+    persistWindowBounds(win);
+
+    // macOS 上关闭窗口会唤醒浏览器，改为只最小化不关闭
+    // 用户可以稍后手动关闭，或让它保持最小化状态
+    await chrome.windows.update(windowId, {
+      state: "minimized",
+      focused: false
+    });
+
+    return true;
+  } catch (error) {
+    console.error("closeWindowSilently failed", error);
+    return false;
   }
 }
 
@@ -145,7 +168,7 @@ async function openOrFocusWindow() {
   createPromptWindow();
 }
 
-// 快捷键触发：支持 Alt+E 再次关闭（聚焦状态下），不聚焦则先唤起
+// 快捷键触发：支持 Alt+E 切换打开/关闭；已存在时直接静默关闭（不先聚焦）
 async function toggleWindowWithShortcut() {
   const existingTab = await findExistingTab();
 
@@ -153,19 +176,12 @@ async function toggleWindowWithShortcut() {
     try {
       const win = await chrome.windows.get(existingTab.windowId);
 
-      if (win.focused) {
-        // 已聚焦：保存位置并关闭
-        persistWindowBounds(win);
-        if (win.type === "popup") {
-          await chrome.windows.remove(win.id);
-        } else {
-          await chrome.tabs.remove(existingTab.id);
-        }
+      // 无论是否聚焦，只要已存在就直接关闭，避免全局快捷键先唤醒浏览器
+      if (win.type === "popup") {
+        await closeWindowSilently(win.id);
       } else {
-        // 未聚焦：先唤起
-        chrome.windows.update(existingTab.windowId, { focused: true });
-        chrome.tabs.update(existingTab.id, { active: true });
-        chrome.tabs.sendMessage(existingTab.id, { action: "FOCUS_SEARCH" });
+        persistWindowBounds(win);
+        await chrome.tabs.remove(existingTab.id);
       }
       return;
     } catch (error) {
@@ -191,5 +207,42 @@ chrome.commands.onCommand.addListener((command) => {
   }
 });
 
-// 浏览器启动时执行一次自动备份
-chrome.runtime.onStartup.addListener(autoBackupPrompts);
+// 接收前端请求：静默关闭当前扩展窗口
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.action !== "CLOSE_WINDOW_SILENT") return;
+
+  (async () => {
+    const targetWindowId =
+      typeof message.windowId === "number"
+        ? message.windowId
+        : sender?.tab?.windowId;
+
+    if (typeof targetWindowId !== "number") {
+      sendResponse({ ok: false, reason: "missing_window_id" });
+      return;
+    }
+
+    const ok = await closeWindowSilently(targetWindowId);
+    sendResponse({ ok });
+  })();
+
+  return true;
+});
+
+// 自动备份已禁用，避免唤起下载提示
+// chrome.runtime.onStartup.addListener(autoBackupPrompts);
+
+// 监听本地存储变化：提示词有改动就自动备份（防抖）
+// chrome.storage.onChanged.addListener((changes, areaName) => {
+//   if (areaName !== "local") return;
+//   if (!changes.myPrompts) return;
+
+//   if (pendingBackupTimer) {
+//     clearTimeout(pendingBackupTimer);
+//   }
+
+//   pendingBackupTimer = setTimeout(() => {
+//     autoBackupPrompts();
+//     pendingBackupTimer = null;
+//   }, BACKUP_DEBOUNCE_MS);
+// });

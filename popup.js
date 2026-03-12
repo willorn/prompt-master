@@ -171,6 +171,14 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 1500);
   }
 
+  function closeCurrentWindowSilently() {
+    chrome.runtime.sendMessage({ action: "CLOSE_WINDOW_SILENT" }, (res) => {
+      if (chrome.runtime.lastError || !res?.ok) {
+        window.close();
+      }
+    });
+  }
+
   // 1. 监听输入，控制清除按钮的显示/隐藏
   searchInput.addEventListener("input", () => {
     // 只有当有内容时才显示
@@ -248,11 +256,6 @@ document.addEventListener("DOMContentLoaded", () => {
         // 给卡片一个唯一的 ID，方便后续快速寻找
         card.dataset.index = index;
 
-        // 原有的 onclick 逻辑保持不变...
-        card.onclick = () => {
-          /* 复制逻辑 */
-        };
-
         // 在卡片的 onkeydown 中增加方向键支持
         card.onkeydown = (e) => {
           const cards = document.querySelectorAll(".card");
@@ -276,7 +279,8 @@ document.addEventListener("DOMContentLoaded", () => {
         card.innerHTML = `
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
                         <span class="card-tag">${item.tag || "默认"}</span>
-                        <div style="display: flex; gap: 8px;">
+                    <div style="display: flex; gap: 8px;">
+                            <button class="copy-btn" title="复制并最小化窗口" data-index="${item.originalIndex}" style="border:none; background:none; cursor:pointer; color: #94a3b8;">📋</button>
                             <button class="pin-btn" data-index="${item.originalIndex}" style="border:none; background:none; cursor:pointer; color: ${item.isPinned ? "#2563eb" : "#94a3b8"};">📌</button>
                             <button class="edit-btn" data-index="${item.originalIndex}" style="border:none; background:none; cursor:pointer; color: #94a3b8;">✏️</button>
                             <button class="delete-btn" data-index="${item.originalIndex}" style="border:none; background:none; cursor:pointer; color: #94a3b8;">🗑️</button>
@@ -288,22 +292,29 @@ document.addEventListener("DOMContentLoaded", () => {
 
         card.onclick = (e) => {
           if (
-            ["pin-btn", "edit-btn", "delete-btn"].some((cls) =>
+            ["pin-btn", "edit-btn", "delete-btn", "copy-btn"].some((cls) =>
               e.target.classList.contains(cls),
             )
           )
             return;
-          navigator.clipboard.writeText(item.content).then(() => {
-            card.style.boxShadow = "0 0 0 3px rgba(37, 99, 235, 0.2)";
-            setTimeout(() => (card.style.boxShadow = ""), 500);
-            showToast();
+          navigator.clipboard
+            .writeText(item.content)
+            .then(() => {
+              card.style.boxShadow = "0 0 0 3px rgba(37, 99, 235, 0.2)";
+              setTimeout(() => (card.style.boxShadow = ""), 500);
+              showToast("已复制，窗口即将最小化");
 
-            // 可选：给卡片增加一个点击后的视觉闪烁反馈
-            card.style.backgroundColor = "#e0f2fe";
-            setTimeout(() => {
-              card.style.backgroundColor = item.isPinned ? "#f0f7ff" : "white";
-            }, 200);
-          });
+              // 可选：给卡片增加一个点击后的视觉闪烁反馈
+              card.style.backgroundColor = "#e0f2fe";
+              setTimeout(() => {
+                card.style.backgroundColor = item.isPinned ? "#f0f7ff" : "white";
+              }, 200);
+
+              closeCurrentWindowSilently();
+            })
+            .catch((err) => {
+              console.error("复制失败", err);
+            });
         };
         cardGrid.appendChild(card);
       }
@@ -327,6 +338,29 @@ document.addEventListener("DOMContentLoaded", () => {
         const idx = btn.dataset.index;
         allPrompts[idx].isPinned = !allPrompts[idx].isPinned;
         saveData();
+      };
+    });
+    document.querySelectorAll(".copy-btn").forEach((btn) => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        const idx = Number(btn.dataset.index);
+        const data = allPrompts[idx];
+        if (!data) return;
+
+        navigator.clipboard
+          .writeText(data.content)
+          .then(() => {
+            const card = btn.closest(".card");
+            if (card) {
+              card.style.boxShadow = "0 0 0 3px rgba(37, 99, 235, 0.2)";
+              setTimeout(() => (card.style.boxShadow = ""), 500);
+            }
+            showToast("已复制，窗口即将最小化");
+            closeCurrentWindowSilently();
+          })
+          .catch((err) => {
+            console.error("复制失败", err);
+          });
       };
     });
     document.querySelectorAll(".edit-btn").forEach((btn) => {
