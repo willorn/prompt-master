@@ -1,5 +1,8 @@
 // 定义插件页面的完整 URL（替换为你自己的文件名）
 const CHROME_EXTENSION_URL = chrome.runtime.getURL("index.html");
+const BACKUP_FILENAME_REGEX =
+  "prompt-master/backups/prompts_backup_.*\\.json$";
+const BACKUP_MAX_COUNT = 5;
 
 // 辅助：根据当前窗口位置保存下次打开的坐标
 function persistWindowBounds(win) {
@@ -41,6 +44,65 @@ function createPromptWindow() {
       });
     });
   });
+}
+
+// 辅助：生成备份文件名
+function buildBackupFilename() {
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  const stamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(
+    now.getDate(),
+  )}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+  return `prompt-master/backups/prompts_backup_${stamp}.json`;
+}
+
+// 清理旧备份，最多保留 BACKUP_MAX_COUNT 个
+async function pruneBackups() {
+  try {
+    const backups = await chrome.downloads.search({
+      filenameRegex: BACKUP_FILENAME_REGEX,
+    });
+
+    backups.sort(
+      (a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime(),
+    );
+
+    if (backups.length <= BACKUP_MAX_COUNT) return;
+
+    const stale = backups.slice(BACKUP_MAX_COUNT); // 只删多余的
+    await Promise.all(
+      stale.map(async (item) => {
+        try {
+          await chrome.downloads.removeFile(item.id);
+        } catch (e) {
+          // 文件可能已不存在，忽略
+        }
+        await chrome.downloads.erase({ id: item.id });
+      }),
+    );
+  } catch (err) {
+    console.error("pruneBackups failed", err);
+  }
+}
+
+// 开机自动备份：写入 Downloads/prompt-master/backups 下，并清理旧文件
+async function autoBackupPrompts() {
+  try {
+    const { myPrompts = [] } = await chrome.storage.local.get(["myPrompts"]);
+    const data = JSON.stringify(myPrompts, null, 2);
+    const filename = buildBackupFilename();
+
+    await chrome.downloads.download({
+      url: "data:application/json," + encodeURIComponent(data),
+      filename,
+      conflictAction: "uniquify",
+      saveAs: false,
+    });
+
+    await pruneBackups();
+  } catch (err) {
+    console.error("autoBackupPrompts failed", err);
+  }
 }
 
 // 找到已存在的扩展标签页（如果有）
@@ -108,3 +170,6 @@ chrome.commands.onCommand.addListener((command) => {
     toggleWindowWithShortcut();
   }
 });
+
+// 浏览器启动时执行一次自动备份
+chrome.runtime.onStartup.addListener(autoBackupPrompts);
