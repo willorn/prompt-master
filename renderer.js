@@ -593,7 +593,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   if (menuWebdav) menuWebdav.onclick = () => {
-    showToast("WebDAV 同步待配置");
+    openWebdavModal();
     if (moreMenu) moreMenu.style.display = "none";
   };
 
