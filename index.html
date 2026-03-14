@@ -524,6 +524,7 @@
       <main>
         <header
           style="
+            position: relative;
             display: flex;
             align-items: center;
             gap: 12px;
@@ -532,9 +533,9 @@
             min-height: 50px;
             max-height: 50px;
             box-sizing: border-box;
-            overflow: hidden;
+            overflow: visible;
             background: white;
-            border-bottom: 1px solid #f1f5f9;
+            border-bottom: 1px solid var(--border);
           "
         >
           <div
@@ -609,8 +610,8 @@
           </button>
           <div id="moreMenu" style="
             position: absolute;
-            right: 20px;
-            top: 54px;
+            right: 18px;
+            top: 52px;
             width: 180px;
             background: rgba(255, 255, 255, 0.92);
             border: 1px solid var(--border);
@@ -618,7 +619,7 @@
             box-shadow: var(--shadow-soft);
             padding: 6px;
             display: none;
-            z-index: 20;
+            z-index: 200;
             backdrop-filter: blur(18px);
           ">
             <button class="menu-item" id="menuImport">导入</button>
