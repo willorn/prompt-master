@@ -259,6 +259,7 @@
         min-width: 0;
         backdrop-filter: blur(20px);
         transition: background 0.25s ease;
+        z-index: 1;
       }
 
       .preview-panel.preview-change {
@@ -472,39 +473,6 @@
           + 新增分类标签
         </button>
 
-        <div
-          style="display: flex; gap: 8px; margin-top: auto; margin-bottom: 12px"
-        >
-          <button
-            id="exportBtn"
-            style="
-              flex: 1;
-              padding: 8px;
-              font-size: 12px;
-              border: 1px solid var(--border);
-              border-radius: 6px;
-              background: white;
-              cursor: pointer;
-            "
-          >
-            导出
-          </button>
-          <button
-            id="importBtn"
-            style="
-              flex: 1;
-              padding: 8px;
-              font-size: 12px;
-              border: 1px solid var(--border);
-              border-radius: 6px;
-              background: white;
-              cursor: pointer;
-            "
-          >
-            导入
-          </button>
-        </div>
-
         <button
           id="addBtn"
           style="
@@ -528,7 +496,7 @@
             display: flex;
             align-items: center;
             gap: 12px;
-            padding: 0 24px;
+            padding: 0 20px;
             height: 50px;
             min-height: 50px;
             max-height: 50px;
@@ -536,12 +504,15 @@
             overflow: visible;
             background: white;
             border-bottom: 1px solid var(--border);
+            justify-content: space-between;
+            z-index: 50;
           "
         >
           <div
             style="
               position: relative;
-              flex: 1;
+              flex: 1 1 auto;
+              min-width: 0;
               height: 40px;
               display: flex;
               align-items: center;
@@ -595,6 +566,7 @@
               width: 36px;
               height: 36px;
               flex-shrink: 0;
+              flex-grow: 0;
               display: flex;
               align-items: center;
               justify-content: center;
@@ -604,13 +576,15 @@
               cursor: pointer;
               transition: all 0.2s;
               font-size: 16px;
+              margin-right: 0;
+              visibility: visible;
             "
           >
             ⋯
           </button>
           <div id="moreMenu" style="
             position: absolute;
-            right: 18px;
+            right: 20px;
             top: 52px;
             width: 180px;
             background: rgba(255, 255, 255, 0.92);
