@@ -133,7 +133,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.addEventListener("click", (e) => {
     if (!moreMenu) return;
     if (e.target && moreMenu.contains(e.target)) return;
-    if (e.target === settingsBtn) return;
+    if (settingsBtn && (e.target === settingsBtn || settingsBtn.contains(e.target))) return;
     moreMenu.style.display = "none";
   });
 
